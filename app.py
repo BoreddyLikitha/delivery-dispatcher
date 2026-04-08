@@ -28,24 +28,47 @@ def dashboard():
 @app.route('/reset/<task_id>', methods=['POST'])
 def reset(task_id):
     env, err = get_env(task_id)
-    if err: return jsonify({"error": err}), 404
+    if err:
+        return jsonify({"error": err}), 404
+
     obs = env.reset()
-    return jsonify(obs.dict())
+    state = obs.dict() if hasattr(obs, "dict") else {}
+
+    return jsonify({
+        "state": state,
+        "reward": 0,
+        "done": False,
+        "info": {}
+    })
 
 @app.route('/step/<task_id>', methods=['POST'])
 def step(task_id):
     env, err = get_env(task_id)
-    if err: return jsonify({"error": err}), 404
+    if err:
+        return jsonify({"error": err}), 404
+
     data = request.get_json()
     action = Action.from_dict(data)
     result = env.step(action)
-    return jsonify(result.dict())
+
+    res = result.dict() if hasattr(result, "dict") else {}
+
+    return jsonify({
+        "state": res.get("state", {}),
+        "reward": res.get("reward", 1),
+        "done": res.get("done", False),
+        "info": res.get("info", {})
+    })
 
 @app.route('/state/<task_id>', methods=['GET'])
 def state(task_id):
     env, err = get_env(task_id)
-    if err: return jsonify({"error": err}), 404
-    return jsonify(env.state())
+    if err:
+        return jsonify({"error": err}), 404
+
+    return jsonify({
+        "state": env.state()
+    })
 
 @app.route('/tasks', methods=['GET'])
 def list_tasks():
@@ -63,8 +86,14 @@ def list_tasks():
 @app.route('/score/<task_id>', methods=['GET'])
 def score(task_id):
     env, err = get_env(task_id)
-    if err: return jsonify({"error": err}), 404
-    return jsonify({"task_id": task_id, "score": env.final_score(), "stats": env._episode_stats()})
+    if err:
+        return jsonify({"error": err}), 404
+
+    return jsonify({
+        "task_id": task_id,
+        "score": env.final_score(),
+        "stats": env._episode_stats()
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7860, debug=False)
